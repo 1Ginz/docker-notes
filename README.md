@@ -10,6 +10,8 @@
   - [3. Docker Container](#3-docker-container)
   - [4. Docker Data](#4-docker-data)
   - [5. Docker Network](#5-docker-network)
+- [V. Docker Compose](#v-docker-compose)
+- [VI. Docker Swarm](#vi-docker-swarm)
 
 ## I. Why need docker?
 
@@ -301,3 +303,152 @@ Docker network là chức năng thiết yếu để quản lí giao tiếp giữ
 - Kết nối container với network: `docker network connect NETWORK CONTAINER`
 - Ngắt kết nối: `docker network disconnect NETWORK CONTAINER`
 - Kiểm tra chi tiết: `docker network inspect NETWORK`
+## V Docker Compose 
+### Định nghĩa
+**Docker Compose là một công cụ cho phép định nghĩa và running nhiều container. Với Compose, bạn sử dụng file YAML để cấu hình các services của ứng dụng. Sau đó, với một lệnh duy nhất, bạn có thể tạo và khởi động tất cả các services từ cấu hình đã định nghĩa.**
+
+Ưu điểm:
++ Đơn giản hóa việc quản lý nhiều containers
++ Dễ dàng scale up/down các services
++ Giúp dễ dàng cấu hình và quản lý các kết nối giữa các dịch vụ.
++ Cho phép định nghĩa volume và network cụ thể cho từng dịch vụ.
+
+### Cấu trúc file docker-compose.yml
+
+```yaml
+version: '3.6' # Phiên bản của Docker Compose file format
+
+services: # Định nghĩa các services (containers)
+  database: #database container
+    image: mysql:8.0
+    container_name: database
+    environment: # EVN giống trong docker file
+      MYSQL_ROOT_PASSWORD: 29082001
+      MYSQL_DATABASE: bookstore
+    ports: # giống expose
+      - 3307:3306
+    volumes: # khai báo volume sử dụng
+      - bookstoreDB:/var/lib/mysql
+    networks: # khai báo network
+      - app-network
+
+  backend: # backend container
+    build: ./bookstore
+    container_name: backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/bookstore
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 29082001
+    ports:
+      - "8080-8085:80" # bind 6 port nên có thể chạy max 6 instance
+    deploy:
+      replicas: 6 # tạo 6 instance cho service
+    depends_on: # đợi db start xong thì backend mới start để connect db
+      - database
+    volumes: # bind mount file jar
+      - ./bookstore/target/bookstore-0.0.1-SNAPSHOT.jar:/application.jar
+    networks:
+      - app-network
+      
+
+  frontend: # frontend container
+    container_name: frontend
+    build: ./Bookshop-frontend
+    ports:
+      - "4200:4200"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+
+volumes: # khai báo volume để các container sử dụng
+  bookstoreDB:
+  
+networks: # khai báo network
+  app-network:
+    driver: bridge
+```
+
+### Các lệnh cơ bản
+
++ Start: `docker-compose up`
++ Start background: `docker-compose up -d`
++ Stop: `docker-compose down`
++ Xem logs: `docker-compose logs`
++ Scale service: `docker-compose up --scale service_name=num` (cần chú ý số port bind)
+
+## VI Docker Swarm
+### Định nghĩa
+Docker compose đã giúp ta có thể khai báo nhiều container hơn nhưng vẫn gặp 1 số vấn đề sau:
++ running trên cùng 1 host -> nếu host down sẽ toàn bộ container down
++ khai báo tất cả container trong 1 file -> nếu có 1000 container thì việc sửa đổi thông số 1 container rất khó khăn
+
+Đó là lí do docker swarm ra đời
+
+**Docker Swarm là một công cụ orchestration tích hợp sẵn trong Docker, cho phép quản lý và điều phối một cluster các Docker nodes hay còn gọi là nhóm các docker engine. Nó cung cấp khả năng tạo và quản lý các services trên nhiều hosts, đảm bảo tính sẵn sàng cao và khả năng mở rộng.**
+
+**Concepts chính:**
+
++ Nodes:
+    + Manager Nodes: Quản lý cluster state và phân phối tasks
+    + Worker Nodes: Thực thi các containers
++ Service: Định nghĩa các task mà Swarm sẽ chạy, bao gồm image, số lượng replicas, và các cấu hình khác.
++ Task: Một instance của container chạy như là một phần của service.
+
+
+### Một số chức năng 
++ Cluster Management tích hợp: Docker Swarm tích hợp sẵn khả năng quản lý cluster, giúp bạn dễ dàng tạo và quản lý một cluster từ các Docker nodes. Bạn có thể dễ dàng thêm hoặc loại bỏ nodes, và Swarm sẽ tự động quản lý trạng thái của cluster.
+
++ Decentralized Design: Swarm sử dụng một thiết kế phi tập trung, nơi mà các nodes trong cluster có thể giao tiếp trực tiếp với nhau mà không cần phải thông qua một máy chủ trung tâm. Điều này giúp tăng tính sẵn sàng và độ tin cậy của hệ thống.
+
++ Declarative Service Mode: Docker Swarm sử dụng mô hình dịch vụ khai báo, cho phép bạn định nghĩa trạng thái mong muốn của dịch vụ (ví dụ: số lượng replicas, network, volume). Swarm sẽ tự động duy trì trạng thái này cho bạn.
+
++ Scaling:Swarm cho phép bạn dễ dàng mở rộng hoặc thu hẹp các dịch vụ của mình chỉ bằng một lệnh đơn giản. Bạn có thể tăng hoặc giảm số lượng replicas của một dịch vụ để đáp ứng nhu cầu thay đổi.
+
++ Desired State Reconciliation: Docker Swarm liên tục giám sát trạng thái hiện tại của các dịch vụ và nodes, và so sánh nó với trạng thái mong muốn. Nếu có bất kỳ sự khác biệt nào, Swarm sẽ tự động thực hiện các hành động cần thiết để khôi phục trạng thái mong muốn.
+
++ Multi-host Networking: 
+        Swarm hỗ trợ việc tạo và quản lý mạng trên nhiều host. Bạn có thể dễ dàng cấu hình các container để giao tiếp với nhau trên nhiều host khác nhau, sử dụng overlay network.
+
++ Service Discovery: 
+        Docker Swarm cung cấp khả năng khám phá dịch vụ tự động. Các dịch vụ trong Swarm có thể tìm và giao tiếp với nhau thông qua DNS names, mà không cần phải cấu hình thủ công các địa chỉ IP.
+
++ Load Balancing: 
+        Swarm tự động cân bằng tải giữa các replicas của một dịch vụ. Khi một yêu cầu đến, Swarm sẽ tự động chuyển hướng yêu cầu đó đến một trong các replicas có sẵn, giúp đảm bảo phân phối tải công bằng và tăng tính sẵn sàng.
+
++ Secure by Default: 
+        Docker Swarm được thiết kế với bảo mật là ưu tiên hàng đầu. Swarm sử dụng xác thực TLS mutual authentication và mã hóa để bảo vệ dữ liệu truyền giữa các nodes, đảm bảo rằng chỉ các nodes được ủy quyền mới có thể tham gia và giao tiếp trong cluster.
+
++ Rolling Updates: Docker Swarm hỗ trợ rolling updates, cho phép bạn cập nhật dịch vụ mà không gây gián đoạn. Swarm sẽ cập nhật từng replica một, đảm bảo rằng dịch vụ luôn có sẵn trong suốt quá trình cập nhật.
+
+### Example
++ Khởi tạo Swarm: `docker swarm init`
++ Thêm node vào Swarm: `docker swarm join --token <token> <manager-ip>:<port>`
++ Tạo service: `docker service create --name my_web --replicas 3 -p 80:80 nginx`
++ Xem trạng thái của service: `docker service ls`
++ Cập nhật service: `docker service update --replicas 5 my_web`
++ Xóa service: `docker service rm my_web`
+
+### Docker Stack:
+Stacks cho phép định nghĩa và quản lý nhiều services cùng lúc trong swarm, tương tự như Docker Compose.
+
+#### **Ex:**
+
+```yaml
+version: '3'
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+  db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+```
+#### command
++ Deploy stack: `docker stack deploy -c docker-stack.yml my_stack`
++ Xem các stack đang chạy: `docker stack ls`
++ Xem các service trong stack: `docker stack services my_stack`
++ stop stack: `docker stack rm my_stack`
