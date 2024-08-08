@@ -251,7 +251,6 @@ Trong Docker container, có ba cách chính để lưu trữ dữ liệu:
 | **Windows support** | Có | Có | Không |
 | **Share giữa containers** | Có | Có | Không |
 | **Tính năng drivers** | Có | Không | Không |
-| **Hiệu suất** | Tạm | Tốt nhất | Tốt (RAM) |
 | **Tính di động** | Cao | Thấp | Không |
 | **Dữ liệu tồn tại khi container dừng** | Có | Có | Không |
 | **Sao lưu** | Dễ dàng | Phụ thuộc vào host | Không áp dụng |
